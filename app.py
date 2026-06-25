@@ -14,12 +14,7 @@ KINOPOISK_API_KEY = os.environ.get("PRBMPGQ-754MP5N-K5Y8A55-BYZY4W9")
 if not BOT_TOKEN or not KINOPOISK_API_KEY:
     logging.error("❌ Ошибка: BOT_TOKEN или KINOPOISK_API_KEY не заданы!")
 
-app = Flask(__name__)
-
-# ===== СОЗДАЁМ ОДИН ЭКЗЕМПЛЯР БОТА (ГЛОБАЛЬНО) =====
-application = Application.builder().token(BOT_TOKEN).build()
-application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+app = Flask(name)
 
 # ===== ФУНКЦИЯ ПОИСКА ФИЛЬМА =====
 def search_movie(title):
@@ -61,7 +56,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# ===== ОБРАБОТЧИК ТЕКСТА (ПОИСК ФИЛЬМА) =====
+# ===== ОБРАБОТЧИК ТЕКСТА =====
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     await update.message.reply_text("🔍 Ищу фильм... Подождите секунду!")
@@ -87,7 +82,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         else:
             await update.message.reply_text(text, parse_mode="Markdown", reply_markup=reply_markup)
-            else:
+    else:
         await update.message.reply_text(
             "😕 Фильм не найден. Попробуйте написать название точнее.",
             reply_markup=InlineKeyboardMarkup([
@@ -95,10 +90,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
         )
 
+# ===== СОЗДАЁМ БОТА =====
 application = Application.builder().token(BOT_TOKEN).build()
-application.add_handler(CoommandHandler("start", start))
+application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
 # ===== МАРШРУТЫ FLASK =====
 @app.route("/")
 def index():
@@ -124,9 +119,9 @@ def set_webhook():
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={webhook_url}"
     try:
         response = requests.get(url)
-        logging.info(f"Webhook set to: {webhook_url} - {response.json()}")
+        logging.info(f"✅ Webhook set to: {webhook_url} - {response.json()}")
     except Exception as e:
-        logging.error(f"Failed to set webhook: {e}")
+        logging.error(f"❌ Failed to set webhook: {e}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
