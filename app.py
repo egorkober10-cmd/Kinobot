@@ -14,7 +14,7 @@ KINOPOISK_API_KEY = os.environ.get("PRBMPGQ-754MP5N-K5Y8A55-BYZY4W9")
 if not BOT_TOKEN or not KINOPOISK_API_KEY:
     logging.error("❌ Ошибка: BOT_TOKEN или KINOPOISK_API_KEY не заданы!")
 
-app = Flask(name)
+app = Flask(__name__)
 
 # ===== ФУНКЦИЯ ПОИСКА ФИЛЬМА =====
 def search_movie(title):
