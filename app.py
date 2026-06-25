@@ -1,4 +1,3 @@
-import os
 import logging
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -8,12 +7,18 @@ from flask import Flask, request
 # ===== НАСТРОЙКИ =====
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Берем ключи из переменных окружения (безопасно для Render)
 BOT_TOKEN = os.environ.get("8841912812:AAEJ4T52xeFPXwDPJk85-HaqWCjS8AEIbQY")
 KINOPOISK_API_KEY = os.environ.get("PRBMPGQ-754MP5N-K5Y8A55-BYZY4W9")
 
-# Создаем Flask-приложение для веб-сервера
+if not BOT_TOKEN or not KINOPOISK_API_KEY:
+    logging.error("❌ Ошибка: BOT_TOKEN или KINOPOISK_API_KEY не заданы в переменных окружения!")
+
 app = Flask(__name__)
+
+# ===== СОЗДАЁМ ОДИН ЭКЗЕМПЛЯР БОТА (ГЛОБАЛЬНО) =====
+application = Application.builder().token(BOT_TOKEN).build()
+application.add_handler(CommandHandler("start", start))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
 # ===== ФУНКЦИЯ ПОИСКА ФИЛЬМА =====
 def search_movie(title):
@@ -81,7 +86,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         else:
             await update.message.reply_text(text, parse_mode="Markdown", reply_markup=reply_markup)
-    else:
+            else:
         await update.message.reply_text(
             "😕 Фильм не найден. Попробуйте написать название точнее.",
             reply_markup=InlineKeyboardMarkup([
@@ -89,14 +94,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
         )
 
-# ===== ЗАПУСК БОТА С WEBHOOK =====
-def setup_bot():
-    application = Application.builder().token(BOT_TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    return application
-
-# Flask-маршрут для health check (обязателен для Render)
+# ===== МАРШРУТЫ FLASK =====
 @app.route("/")
 def index():
     return "✅ Бот работает на Render!"
@@ -105,26 +103,27 @@ def index():
 def health():
     return "OK"
 
-# Маршрут для обработки webhook
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     try:
-        update = Update.de_json(request.get_json(force=True), setup_bot().bot)
-        setup_bot().process_update(update)
+        update = Update.de_json(request.get_json(force=True), application.bot)
+        application.process_update(update)
         return "ok", 200
     except Exception as e:
         logging.error(f"Webhook error: {e}")
         return "error", 500
 
-if __name__ == "__main__":
-    # При запуске на Render устанавливаем webhook
-    port = int(os.environ.get("PORT", 5000))
+# ===== УСТАНОВКА WEBHOOK =====
+def set_webhook():
     webhook_url = f"{os.environ.get('RENDER_EXTERNAL_URL', '')}/webhook/{BOT_TOKEN}"
     app_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={webhook_url}"
     try:
-        requests.get(app_url)
-        logging.info(f"Webhook set to: {webhook_url}")
+        response = requests.get(app_url)
+        logging.info(f"Webhook set to: {webhook_url} - {response.json()}")
     except Exception as e:
         logging.error(f"Failed to set webhook: {e}")
-    # Запускаем Flask-сервер
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    set_webhook()
     app.run(host="0.0.0.0", port=port)
