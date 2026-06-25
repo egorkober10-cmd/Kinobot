@@ -12,7 +12,7 @@ BOT_TOKEN = os.environ.get("8841912812:AAEJ4T52xeFPXwDPJk85-HaqWCjS8AEIbQY")
 KINOPOISK_API_KEY = os.environ.get("PRBMPGQ-754MP5N-K5Y8A55-BYZY4W9")
 
 if not BOT_TOKEN or not KINOPOISK_API_KEY:
-    logging.error("❌ Ошибка: BOT_TOKEN или KINOPOISK_API_KEY не заданы в переменных окружения!")
+    logging.error("❌ Ошибка: BOT_TOKEN или KINOPOISK_API_KEY не заданы!")
 
 app = Flask(__name__)
 
@@ -95,6 +95,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
         )
 
+application = Application.builder().token(BOT_TOKEN).build()
+application.add_handler(CoommandHandler("start", start))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
 # ===== МАРШРУТЫ FLASK =====
 @app.route("/")
 def index():
@@ -117,9 +121,9 @@ def webhook():
 # ===== УСТАНОВКА WEBHOOK =====
 def set_webhook():
     webhook_url = f"{os.environ.get('RENDER_EXTERNAL_URL', '')}/webhook/{BOT_TOKEN}"
-    app_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={webhook_url}"
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={webhook_url}"
     try:
-        response = requests.get(app_url)
+        response = requests.get(url)
         logging.info(f"Webhook set to: {webhook_url} - {response.json()}")
     except Exception as e:
         logging.error(f"Failed to set webhook: {e}")
