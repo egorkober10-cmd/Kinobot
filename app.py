@@ -21,39 +21,33 @@ app = Flask(__name__)
 def search_movie(title):
     logging.info(f"🔍 Поиск фильма: {title}")
     
-    # Пробуем два варианта URL
-    urls = [
-        f"https://api.kinopoisk.dev/v1.4/movie/search?query={title}&limit=1",
-        f"https://api.kinopoisk.dev/v1.4/movie?query={title}&limit=1"
-    ]
-    
+    url = "https://api.kinopoisk.dev/v1.4/movie/search"
     headers = {"X-API-KEY": KINOPOISK_API_KEY}
+    params = {"query": title, "limit": 1}
     
-    for url in urls:
-        try:
-            logging.info(f"📡 Запрос к: {url}")
-            response = requests.get(url, headers=headers)
-            logging.info(f"📊 Статус ответа: {response.status_code}")
+    try:
+        logging.info(f"📡 Запрос к API...")
+        response = requests.get(url, headers=headers, params=params)
+        logging.info(f"📊 Статус ответа: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("docs") and len(data["docs"]) > 0:
+                movie = data["docs"][0]
+                result = {
+                    "name": movie.get("name", "Неизвестно"),
+                    "year": movie.get("year", "Неизвестно"),
+                    "rating": movie.get("rating", {}).get("kp", "Нет рейтинга"),
+                    "description": movie.get("description", "Описание отсутствует"),
+                    "poster": movie.get("poster", {}).get("url", None)
+                }
+                logging.info(f"✅ Фильм найден: {result['name']}")
+                return result
+        else:
+            logging.warning(f"⚠️ Ошибка API: {response.text}")
             
-            if response.status_code == 200:
-                data = response.json()
-                logging.info(f"📦 Данные получены: {data.keys() if isinstance(data, dict) else 'не словарь'}")
-                
-                if data.get("docs") and len(data["docs"]) > 0:
-                    movie = data["docs"][0]
-                    result = {
-                        "name": movie.get("name", "Неизвестно"),
-                        "year": movie.get("year", "Неизвестно"),
-                        "rating": movie.get("rating", {}).get("kp", "Нет рейтинга"),
-                        "description": movie.get("description", "Описание отсутствует"),
-                        "poster": movie.get("poster", {}).get("url", None)
-                    }
-                    logging.info(f"✅ Фильм найден: {result['name']}")
-                    return result
-            else:
-                logging.warning(f"⚠️ Ошибка {response.status_code}: {response.text}")
-        except Exception as e:
-            logging.error(f"❌ Ошибка при запросе к {url}: {e}")
+    except Exception as e:
+        logging.error(f"❌ Ошибка при запросе: {e}")
     
     logging.warning(f"❌ Фильм не найден: {title}")
     return None
@@ -88,7 +82,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.info("✅ Отправил сообщение 'Ищу...'")
         
         movie_data = search_movie(user_text)
-        logging.info(f"📽️ Результат поиска: {'найден' if movie_data else 'не найден'}")
         
         if movie_data:
             rating = movie_data["rating"]
@@ -124,7 +117,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             logging.info("✅ Отправлено сообщение 'Фильм не найден'")
     except Exception as e:
-        logging.error(f"💥 Критическая ошибка в handle_message: {e}")
+        logging.error(f"💥 Ошибка в handle_message: {e}")
         await update.message.reply_text("⚠️ Произошла ошибка. Попробуйте позже.")
 
 # ===== СОЗДАЁМ БОТА =====
@@ -144,8 +137,13 @@ def health():
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     try:
-        update = Update.de_json(request.get_json(force=True), application.bot)
-        application.process_update(update)
+        # Получаем update из запроса
+        update_data = request.get_json(force=True)
+        update = Update.de_json(update_data, application.bot)
+        
+        # Правильный способ обработки update в Flask
+        application.update_queue.put_nowait(update)
+        
         return "ok", 200
     except Exception as e:
         logging.error(f"Webhook error: {e}")
