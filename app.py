@@ -8,8 +8,9 @@ from flask import Flask, request
 # ===== НАСТРОЙКИ =====
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-BOT_TOKEN = os.environ.get("8841912812:AAEJ4T52xeFPXwDPJk85-HaqWCjS8AEIbQY")
-KINOPOISK_API_KEY = os.environ.get("PRBMPGQ-754MP5N-K5Y8A55-BYZY4W9")
+# Берем ключи из переменных окружения (на Render они заданы в Environment Variables)
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+KINOPOISK_API_KEY = os.environ.get("KINOPOISK_API_KEY")
 
 if not BOT_TOKEN or not KINOPOISK_API_KEY:
     logging.error("❌ Ошибка: BOT_TOKEN или KINOPOISK_API_KEY не заданы!")
@@ -56,7 +57,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# ===== ОБРАБОТЧИК ТЕКСТА =====
+# ===== ОБРАБОТЧИК ТЕКСТА (ПОИСК ФИЛЬМА) =====
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     await update.message.reply_text("🔍 Ищу фильм... Подождите секунду!")
@@ -94,6 +95,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 application = Application.builder().token(BOT_TOKEN).build()
 application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
 # ===== МАРШРУТЫ FLASK =====
 @app.route("/")
 def index():
